@@ -123,18 +123,22 @@ void RbacPolicy::addRule(const Rule &rule) const {
 	}
 }
 
-void RbacPolicy::addPrincipal(const Principal principal) const {
-	switch (principal.type) {
-	case Principal::Type::Collection:
-		addCollection(principal.id);
-		break;
-	case Principal::Type::Identity:
-		addIdentity(principal.id);
-		break;
+const RbacPolicy::collections_t RbacPolicy::collections() const {
+	std::string_view qry = R"(
+		select
+			collection_id
+		from "rbac-policies_collections"
+		where policy_id = $1::text;
+	)";
 
-	default:
-		throw err::DatastoreInvalidRbacPolicyOrPrincipal();
+	auto res = pg::exec(qry, _data.id);
+
+	RbacPolicy::collections_t collections;
+	for (const auto &r : res) {
+		collections.insert(r["collection_id"].as<collection_t>());
 	}
+
+	return collections;
 }
 
 const RbacPolicy::identities_t RbacPolicy::identities(bool expand) const {
@@ -163,41 +167,10 @@ const RbacPolicy::identities_t RbacPolicy::identities(bool expand) const {
 
 	RbacPolicy::identities_t identities;
 	for (const auto &r : res) {
-		identities.insert(r["identity_id"].as<std::string>());
+		identities.insert(r["identity_id"].as<identity_t>());
 	}
 
 	return identities;
-}
-
-const RbacPolicy::Principals RbacPolicy::principals() const {
-	std::string_view qry = R"(
-		select
-			collection_id as id,
-			1::int as type
-		from
-			"rbac-policies_collections"
-		where
-			policy_id = $1::text
-		UNION
-		select
-			identity_id as id,
-			2::int as type
-		from
-			"rbac-policies_identities"
-		where
-			policy_id = $1::text
-	)";
-
-	auto       res = pg::exec(qry, id());
-	Principals members;
-	for (const auto &r : res) {
-		members.push_back(Principal({
-			.id   = r["id"].as<std::string>(),
-			.type = static_cast<Principal::Type>(r["type"].as<int>()),
-		}));
-	}
-
-	return members;
 }
 
 const RbacPolicy::Rules RbacPolicy::rules() const {

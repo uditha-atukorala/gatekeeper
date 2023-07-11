@@ -52,15 +52,7 @@ public:
 		bool operator==(const Data &) const noexcept = default;
 	};
 
-	struct Principal {
-		std::string id;
-		enum class Type { Unspecified, Collection, Identity } type;
-
-		bool operator==(const Principal &) const noexcept = default;
-	};
-
-	using Rules      = std::vector<Rule>;
-	using Principals = std::vector<Principal>;
+	using Rules = std::vector<Rule>;
 
 	RbacPolicy(const Data &data) noexcept;
 	RbacPolicy(Data &&data) noexcept;
@@ -70,16 +62,15 @@ public:
 	const std::string &id() const noexcept { return _data.id; }
 	const int         &rev() const noexcept { return _rev; }
 
+	const collections_t collections() const;
+	void                addCollection(const collection_t &id) const;
+
 	const identities_t identities(bool expand = false) const;
 	void               addIdentity(const identity_t &id) const;
 
 	const Data::name_t &name() const noexcept { return _data.name; }
 	void                name(const std::string &name) noexcept { _data.name = name; }
 	void                name(std::string &&name) noexcept { _data.name = std::move(name); }
-
-	const Principals principals() const;
-	void             addPrincipal(const Principal principal) const;
-	void             addCollection(const collection_t &id) const;
 
 	const Rules rules() const;
 	void        addRule(const Rule &rule) const;

@@ -81,24 +81,12 @@ grpc::ServerUnaryReactor *Grpc::CreateAccessPolicy(
 		return reactor;
 	}
 
-	for (const auto &principal : request->principals()) {
-		try {
-			switch (principal.type()) {
-			case gk::v1::PrincipalType::PRINCIPAL_TYPE_COLLECTION:
-				policy.addCollection(principal.id());
-				break;
-			case gk::v1::PrincipalType::PRINCIPAL_TYPE_IDENTITY:
-				policy.addIdentity(principal.id());
-				break;
-			default:
-				reactor->Finish(
-					grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Unhandled principal"));
-				return reactor;
-			}
-		} catch (...) {
-			reactor->Finish(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Failed to add principal"));
-			return reactor;
-		}
+	for (const auto &id : request->collection_ids()) {
+		policy.addCollection(id);
+	}
+
+	for (const auto &id : request->identity_ids()) {
+		policy.addIdentity(id);
 	}
 
 	map(policy, response);
@@ -464,13 +452,12 @@ grpc::ServerUnaryReactor *Grpc::CreateRbacPolicy(
 		}
 
 		// Add principals
-		if (request->principals().size() > 0) {
-			for (const auto &principal : request->principals()) {
-				policy.addPrincipal(datastore::RbacPolicy::Principal({
-					.id   = principal.id(),
-					.type = static_cast<datastore::RbacPolicy::Principal::Type>(principal.type()),
-				}));
-			}
+		for (const auto &id : request->collection_ids()) {
+			policy.addCollection(id);
+		}
+
+		for (const auto &id : request->identity_ids()) {
+			policy.addIdentity(id);
 		}
 	} catch (std::exception &e) {
 		reactor->Finish(grpc::Status(grpc::StatusCode::UNAVAILABLE, "Failed to store data"));

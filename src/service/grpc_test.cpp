@@ -172,7 +172,7 @@ TEST_F(GrpcTest, CreateAccessPolicy) {
 		EXPECT_EQ("Duplicate policy id", peer.test_status().error_message());
 	}
 
-	// Success: create access policy with a principal and resource
+	// Success: create access policy with an identity and resource
 	{
 		const datastore::Identity identity({
 			.sub = "principal_sub:GrpcTest.CreateAccessPolicy",
@@ -185,10 +185,7 @@ TEST_F(GrpcTest, CreateAccessPolicy) {
 
 		gk::v1::CreateAccessPolicyRequest request;
 		request.set_name("name:GrpcTest.CreateAccessPolicy");
-
-		auto principal = request.add_principals();
-		principal->set_id(identity.id());
-		principal->set_type(gk::v1::PrincipalType::PRINCIPAL_TYPE_IDENTITY);
+		request.add_identity_ids(identity.id());
 
 		auto rule = request.add_rules();
 		rule->set_resource("resource_id:GrpcTest.CreateAccessPolicy");
@@ -240,10 +237,7 @@ TEST_F(GrpcTest, CreateAccessPolicy) {
 
 		gk::v1::CreateAccessPolicyRequest request;
 		request.set_name("name:GrpcTest.CreateAccessPolicy");
-
-		auto principal = request.add_principals();
-		principal->set_id(collection.id());
-		principal->set_type(gk::v1::PrincipalType::PRINCIPAL_TYPE_COLLECTION);
+		request.add_collection_ids(collection.id());
 
 		auto rule = request.add_rules();
 		rule->set_resource("resource_id:GrpcTest.CreateAccessPolicy");
@@ -1113,16 +1107,14 @@ TEST_F(GrpcTest, CreateRbacPolicy) {
 
 		gk::v1::CreateRbacPolicyRequest request;
 		request.set_name("name:GrpcTest.CreateRbacPolicy");
+		request.add_identity_ids(identity.id());
+
 		auto rule = request.add_rules();
 		rule->set_role_id(role.id());
 
-		auto principal = request.add_principals();
-		principal->set_id(identity.id());
-		principal->set_type(gk::v1::PrincipalType::PRINCIPAL_TYPE_IDENTITY);
-
 		// expect no access before request
 		{
-			const auto policies = datastore::RbacPolicy::Cache::check(principal->id(), permission);
+			const auto policies = datastore::RbacPolicy::Cache::check(identity.id(), permission);
 			EXPECT_EQ(0, policies.size());
 		}
 
@@ -1133,12 +1125,12 @@ TEST_F(GrpcTest, CreateRbacPolicy) {
 
 		EXPECT_FALSE(response.id().empty());
 		EXPECT_EQ(request.name(), response.name());
-		EXPECT_EQ(identity.id(), response.principals(0).id());
+		EXPECT_EQ(identity.id(), response.identity_ids(0));
 		EXPECT_EQ(role.id(), response.rules(0).role_id());
 
 		// expect to find single policy when checking access
 		{
-			const auto policies = datastore::RbacPolicy::Cache::check(principal->id(), permission);
+			const auto policies = datastore::RbacPolicy::Cache::check(identity.id(), permission);
 			EXPECT_EQ(1, policies.size());
 		}
 	}
@@ -1172,12 +1164,10 @@ TEST_F(GrpcTest, CreateRbacPolicy) {
 
 		gk::v1::CreateRbacPolicyRequest request;
 		request.set_name("name:GrpcTest.CreateRbacPolicy");
+		request.add_collection_ids(collection.id());
+
 		auto rule = request.add_rules();
 		rule->set_role_id(role.id());
-
-		auto principal = request.add_principals();
-		principal->set_id(collection.id());
-		principal->set_type(gk::v1::PrincipalType::PRINCIPAL_TYPE_COLLECTION);
 
 		// expect no access before request
 		{
@@ -1190,6 +1180,11 @@ TEST_F(GrpcTest, CreateRbacPolicy) {
 		EXPECT_TRUE(peer.test_status_set());
 		EXPECT_TRUE(peer.test_status().ok());
 		EXPECT_EQ(peer.reactor(), reactor);
+
+		EXPECT_FALSE(response.id().empty());
+		EXPECT_EQ(request.name(), response.name());
+		EXPECT_EQ(collection.id(), response.collection_ids(0));
+		EXPECT_EQ(role.id(), response.rules(0).role_id());
 
 		// expect to find single policy when checking access
 		{
